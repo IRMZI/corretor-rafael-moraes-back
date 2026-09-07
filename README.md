@@ -21,10 +21,13 @@ rastreia os visitantes anônimos e entrega tudo num **painel administrativo em
 - Acessos em 7 / 30 / 90 dias, tempo médio na página, funil e taxa de conversão
 - Desempenho por campanha (UTM, ou gclid/fbclid quando a UTM não vem)
 
-**Painel `/admin`**
+**Painel administrativo**
 
-- Login por e-mail e senha, com sessão em cookie assinado
-- Visão geral, campanhas, visitantes (com a jornada de cada um) e conversões
+O painel em si mora no [site](https://github.com/IRMZI/Corretor-Rafael-Moraes),
+em `/admin` — esta API entrega os dados e a sessão:
+
+- Login por e-mail e senha, com sessão em cookie assinado que atravessa domínios
+- Métricas, campanhas, visitantes (com a jornada de cada um) e conversões
 - Tags nos leads; marcar **vendido** registra a venda e dispara o evento de
   conversão para a Meta (API de Conversões) e o GA4
 
@@ -247,8 +250,7 @@ src/
 ├── utils/                  # Identificação de campanha, token de sessão, log
 └── validators/             # Schemas (zod) do lead, do tracking e dos filtros
 public/
-├── track.js                # Script de rastreamento carregado pela landing page
-└── admin/                  # Painel: HTML, CSS e JS puros (sem build)
+└── track.js                # Script de rastreamento carregado pela landing page
 db/migrations/              # Arquivos .sql aplicados em ordem
 tests/                      # Testes de integração da API e do painel
 ```
@@ -275,4 +277,8 @@ Funciona em qualquer serviço que rode Node: Railway, Render, Fly.io, VPS com Do
 3. Comando de start: `npm start` — as migrations rodam sozinhas no boot
 4. Healthcheck: `/health`
 5. Preencha o `CONFIG.api` da landing page com a URL pública da API
-6. Acesse o painel em `https://sua-api.com.br/admin`
+6. Cadastre `VITE_API_URL` no projeto da Vercel e acesse o painel em `/admin` do site
+
+O painel roda em outro domínio, então o cookie de sessão sai com
+`SameSite=None; Secure` em produção — o que exige HTTPS na API e o domínio do
+site listado em `CORS_ORIGINS`.

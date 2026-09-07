@@ -255,11 +255,7 @@ if (!urlBanco) {
     assert.ok(tags.some((item) => item.tag === 'quente'));
   });
 
-  test('painel responde /admin e o script de rastreamento em /track.js', async () => {
-    const painel = await fetch(`${base}/admin/`);
-    assert.equal(painel.status, 200);
-    assert.match(await painel.text(), /Painel/);
-
+  test('serve o script de rastreamento em /track.js', async () => {
     const script = await fetch(`${base}/track.js`);
     assert.equal(script.status, 200);
     assert.match(script.headers.get('content-type'), /javascript/);

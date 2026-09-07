@@ -38,9 +38,17 @@ export function lerToken(token) {
   }
 }
 
+/* O painel roda em outro dominio (Vercel) e a API em outro: o cookie so
+   acompanha a requisicao com SameSite=None, que por sua vez exige Secure -
+   e HTTPS. Em desenvolvimento (http://localhost) isso nao vale, entao
+   voltamos para Lax, que funciona porque a origem e o mesmo host.
+
+   Contra CSRF: as rotas administrativas so aceitam application/json, o que
+   obriga o navegador a fazer preflight, e o preflight so passa para as
+   origens listadas em CORS_ORIGINS. */
 export const opcoesCookie = {
   httpOnly: true,
-  sameSite: 'lax',
+  sameSite: isProducao ? 'none' : 'lax',
   secure: isProducao,
   path: '/',
   maxAge: env.sessionHours * 60 * 60 * 1000

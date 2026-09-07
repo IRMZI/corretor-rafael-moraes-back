@@ -22,23 +22,11 @@ export function criarApp() {
   app.set('trust proxy', env.trustProxy);
   app.disable('x-powered-by');
 
-  /* O painel usa CSS/JS proprios inline-free, mas carrega dados por fetch da
-     mesma origem: a CSP fica restrita a 'self'. */
+  /* Esta API so devolve JSON e o track.js. O track.js e carregado pela landing
+     page, que fica em outro dominio - dai o resource policy aberto. */
   app.use(
     helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          /* 'unsafe-inline' so no estilo: o painel ajusta largura de barra e
-             cor de legenda no atributo style. Script continua restrito. */
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:'],
-          connectSrc: ["'self'"],
-          frameAncestors: ["'none'"],
-          objectSrc: ["'none'"]
-        }
-      },
+      contentSecurityPolicy: false,
       crossOriginResourcePolicy: { policy: 'cross-origin' }
     })
   );
@@ -53,15 +41,18 @@ export function criarApp() {
     cors((req, callback) => {
       const origem = req.headers.origin;
       const mesmaOrigem = origem === `${req.protocol}://${req.get('host')}`;
-      const autorizada = !origem || mesmaOrigem || liberarTudo || env.corsOrigins.includes(origem);
+      const listada = env.corsOrigins.includes(origem);
+      const autorizada = !origem || mesmaOrigem || listada || liberarTudo;
 
       /* Sem Origin (curl, healthcheck, servidor a servidor) tambem passa:
          a rota publica ja e protegida por rate limit e honeypot. */
       if (!autorizada) return callback(new ErroHttp(403, `Origem nao autorizada pelo CORS: ${origem}`));
 
+      /* O cookie de sessao do painel so viaja para origem conhecida - nunca
+         com o curinga, que o navegador recusa junto de credenciais. */
       return callback(null, {
         origin: true,
-        credentials: mesmaOrigem,
+        credentials: mesmaOrigem || listada,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization'],
         maxAge: 86_400
@@ -73,8 +64,8 @@ export function criarApp() {
     res.json({
       ok: true,
       servico: 'API de leads - Corretor Rafael Moraes',
-      painel: '/admin',
-      rotas: ['POST /api/leads', 'POST /api/track', 'GET /api/admin/metricas', 'GET /api/leads']
+      painel: 'o painel /admin fica no site (repositorio Corretor-Rafael-Moraes)',
+      rotas: ['POST /api/leads', 'POST /api/track', 'POST /api/admin/login', 'GET /api/admin/metricas', 'GET /api/leads']
     });
   });
 
@@ -101,10 +92,6 @@ export function criarApp() {
   app.use('/api/leads', leadsRouter);
   app.use('/api/track', trackingRouter);
   app.use('/api/admin', adminRouter);
-
-  /* Painel administrativo: HTML/CSS/JS servidos pela propria API. */
-  app.use('/admin', express.static(path.join(publico, 'admin'), { index: 'index.html' }));
-  app.get('/admin/*qualquer', (_req, res) => res.sendFile(path.join(publico, 'admin', 'index.html')));
 
   app.use(naoEncontrado);
   app.use(tratarErros);
