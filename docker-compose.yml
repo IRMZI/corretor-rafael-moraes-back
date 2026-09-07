@@ -1,0 +1,38 @@
+# Sobe API + PostgreSQL para desenvolvimento local: docker compose up
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: corretor_leads
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DATABASE_URL: postgres://postgres:postgres@db:5432/corretor_leads
+      DATABASE_SSL: 'false'
+      RUN_MIGRATIONS_ON_START: 'true'
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5500}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-troque-esta-chave}
+    ports:
+      - '3000:3000'
+
+volumes:
+  postgres_data:
