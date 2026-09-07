@@ -65,7 +65,7 @@ docker compose up --build
 | `ADMIN_EMAIL` | — | E-mail do login do painel |
 | `ADMIN_PASSWORD` | — | Senha do login do painel |
 | `SESSION_SECRET` | — | Segredo que assina o cookie de sessão do painel |
-| `SESSION_HORAS` (`SESSION_HOURS`) | `12` | Horas até a sessão do painel expirar |
+| `SESSION_HOURS` | `12` | Horas até a sessão do painel expirar |
 | `META_PIXEL_ID` / `META_ACCESS_TOKEN` | — | Envio da venda pela API de Conversões da Meta |
 | `GA4_MEASUREMENT_ID` / `GA4_API_SECRET` | — | Envio da venda pelo Measurement Protocol do GA4 |
 
