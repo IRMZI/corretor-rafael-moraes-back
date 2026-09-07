@@ -52,6 +52,10 @@ export const leadSchema = z.object({
     .optional()
     .catch(null),
 
+  /* Ids do track.js: ligam a conversao ao visitante anonimo e a sua jornada. */
+  visitante_uid: z.string().trim().max(64).nullable().optional().catch(null),
+  sessao_uid: z.string().trim().max(64).nullable().optional().catch(null),
+
   /* Honeypot: preenchido = robo. Validado no controller, nao aqui. */
   empresa: z.string().max(200).optional()
 });
@@ -64,8 +68,18 @@ export const listarLeadsSchema = z.object({
   objetivo: z.string().trim().max(40).optional(),
   tipo_imovel: z.string().trim().max(40).optional(),
   busca: z.string().trim().max(120).optional(),
+  tag: z.string().trim().max(40).optional(),
+  campanha: z.string().trim().max(120).optional(),
   desde: z.string().datetime().optional(),
   ate: z.string().datetime().optional()
+});
+
+export const definirTagsSchema = z.object({
+  tags: z
+    .array(z.string().trim().min(1).max(40).toLowerCase())
+    .max(20)
+    .transform((tags) => [...new Set(tags)]),
+  valor_venda: z.coerce.number().min(0).max(1_000_000_000).nullable().optional().catch(null)
 });
 
 export const atualizarStatusSchema = z.object({

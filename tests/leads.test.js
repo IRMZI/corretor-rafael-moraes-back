@@ -21,7 +21,7 @@ if (!urlBanco) {
   const { query, fecharPool } = await import('../src/db/index.js');
 
   await migrar();
-  await query('TRUNCATE leads RESTART IDENTITY');
+  await query('TRUNCATE vendas, eventos, sessoes, leads, visitantes RESTART IDENTITY CASCADE');
 
   const servidor = criarApp().listen(0);
   await new Promise((resolve) => servidor.once('listening', resolve));

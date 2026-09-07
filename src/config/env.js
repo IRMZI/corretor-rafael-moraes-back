@@ -31,7 +31,20 @@ export const env = {
 
   rateLimitWindowMinutes: int(process.env.RATE_LIMIT_WINDOW_MINUTES, 10),
   rateLimitMax: int(process.env.RATE_LIMIT_MAX, 20),
-  dedupeWindowMinutes: int(process.env.DEDUPE_WINDOW_MINUTES, 10)
+  dedupeWindowMinutes: int(process.env.DEDUPE_WINDOW_MINUTES, 10),
+
+  /* Painel administrativo (/admin) */
+  adminEmail: (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
+  adminPassword: process.env.ADMIN_PASSWORD || '',
+  sessionSecret: process.env.SESSION_SECRET || '',
+  sessionHours: int(process.env.SESSION_HOURS, 12),
+
+  /* Envio do evento de venda para as plataformas de anuncio */
+  metaPixelId: process.env.META_PIXEL_ID || '',
+  metaAccessToken: process.env.META_ACCESS_TOKEN || '',
+  metaTestEventCode: process.env.META_TEST_EVENT_CODE || '',
+  ga4MeasurementId: process.env.GA4_MEASUREMENT_ID || '',
+  ga4ApiSecret: process.env.GA4_API_SECRET || ''
 };
 
 export const isProducao = env.nodeEnv === 'production';
@@ -52,6 +65,12 @@ export function validarConfig() {
   }
   if (isProducao && env.corsOrigins.includes('*')) {
     erros.push('CORS_ORIGINS com "*" nao e permitido em producao.');
+  }
+  if (!env.adminEmail || !env.adminPassword) {
+    erros.push('Defina ADMIN_EMAIL e ADMIN_PASSWORD para liberar o login do painel /admin.');
+  }
+  if (isProducao && !env.sessionSecret) {
+    erros.push('Defina SESSION_SECRET para assinar o cookie de sessao do painel.');
   }
   return erros;
 }

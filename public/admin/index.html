@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel · Corretor Rafael Moraes</title>
+<link rel="stylesheet" href="/admin/painel.css">
+</head>
+<body>
+
+<!-- ======================================================== LOGIN ======= -->
+<div class="login" id="telaLogin" hidden>
+  <form class="login__caixa" id="formLogin">
+    <p class="login__marca">Painel administrativo</p>
+    <h1>Entrar</h1>
+    <p>Acompanhe visitantes, campanhas e conversões da landing page.</p>
+
+    <div class="campo">
+      <label for="email">E-mail</label>
+      <input type="email" id="email" name="email" autocomplete="username" required>
+    </div>
+    <div class="campo">
+      <label for="senha">Senha</label>
+      <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+    </div>
+
+    <button type="submit" class="btn btn--primario btn--bloco" id="btnEntrar">Entrar</button>
+    <div class="aviso aviso--erro" id="erroLogin" hidden></div>
+  </form>
+</div>
+
+<!-- ======================================================== PAINEL ====== -->
+<div id="telaPainel" hidden>
+  <header class="topo">
+    <div class="topo__marca">Rafael Moraes <span>· painel</span></div>
+    <nav class="abas" id="abas">
+      <button class="aba ativa" data-aba="visao">Visão geral</button>
+      <button class="aba" data-aba="campanhas">Campanhas</button>
+      <button class="aba" data-aba="visitantes">Visitantes</button>
+      <button class="aba" data-aba="conversoes">Conversões</button>
+    </nav>
+    <div class="topo__direita">
+      <span class="topo__usuario" id="usuarioLogado"></span>
+      <button class="btn btn--pequeno" id="btnSair">Sair</button>
+    </div>
+  </header>
+
+  <main class="conteudo">
+
+    <!-- ---------------------------------------------------- VISÃO GERAL -->
+    <section data-secao="visao">
+      <div class="secao__titulo"><h2>Visão geral</h2></div>
+      <p class="secao__ajuda">Tráfego anônimo, jornada e conversões da landing page.</p>
+
+      <div class="filtros">
+        <div class="periodo" id="periodoVisao">
+          <button data-dias="7">7 dias</button>
+          <button data-dias="30" class="ativo">30 dias</button>
+          <button data-dias="90">90 dias</button>
+        </div>
+      </div>
+
+      <div class="kpis" id="kpisVisao"></div>
+
+      <div class="colunas">
+        <div class="cartao">
+          <div class="cartao__cabecalho">
+            <h3>Acessos e conversões por dia</h3>
+            <div class="legenda">
+              <span class="legenda__item"><span class="legenda__cor" style="background:var(--serie-acessos)"></span>Acessos</span>
+              <span class="legenda__item"><span class="legenda__cor" style="background:var(--serie-conversoes)"></span>Conversões</span>
+            </div>
+          </div>
+          <p class="cartao__nota">Cada acesso é uma visita; cada conversão é um formulário enviado.</p>
+          <div class="gr" id="graficoSerie"></div>
+        </div>
+
+        <div class="cartao">
+          <h3>Jornada até a conversão</h3>
+          <p class="cartao__nota">Quantas visitas chegaram a cada etapa no período.</p>
+          <div class="barras" id="funil"></div>
+        </div>
+      </div>
+
+      <div class="cartao">
+        <div class="cartao__cabecalho">
+          <h3>Campanhas que mais geram leads</h3>
+          <a href="#" data-ir="campanhas">ver todas</a>
+        </div>
+        <p class="cartao__nota">Leads gerados no período, por campanha de origem.</p>
+        <div class="barras" id="topCampanhas"></div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------ CAMPANHAS -->
+    <section data-secao="campanhas" hidden>
+      <div class="secao__titulo"><h2>Campanhas</h2></div>
+      <p class="secao__ajuda">Identificadas pela UTM da URL (ou por gclid/fbclid quando a UTM não vem).</p>
+
+      <div class="filtros">
+        <div class="periodo" id="periodoCampanhas">
+          <button data-dias="7">7 dias</button>
+          <button data-dias="30" class="ativo">30 dias</button>
+          <button data-dias="90">90 dias</button>
+        </div>
+      </div>
+
+      <div class="cartao">
+        <div class="tabela-rolagem">
+          <table>
+            <thead>
+              <tr>
+                <th>Campanha</th><th>Origem</th><th>Mídia</th>
+                <th class="num">Acessos</th><th class="num">Visitantes</th>
+                <th class="num">Leads</th><th class="num">Conversão</th>
+                <th class="num">Tempo médio</th><th class="num">Vendas</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaCampanhas"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------- VISITANTES -->
+    <section data-secao="visitantes" hidden>
+      <div class="secao__titulo"><h2>Visitantes</h2></div>
+      <p class="secao__ajuda">Visitantes anônimos e a campanha que trouxe cada um. Clique para ver a jornada completa.</p>
+
+      <div class="filtros">
+        <div class="periodo" id="periodoVisitantes">
+          <button data-dias="7">7 dias</button>
+          <button data-dias="30" class="ativo">30 dias</button>
+          <button data-dias="90">90 dias</button>
+        </div>
+        <select id="filtroConvertido">
+          <option value="">Todos</option>
+          <option value="true">Só convertidos</option>
+          <option value="false">Não convertidos</option>
+        </select>
+        <input type="search" id="buscaVisitantes" placeholder="Buscar campanha ou origem">
+      </div>
+
+      <div class="cartao">
+        <div class="tabela-rolagem">
+          <table>
+            <thead>
+              <tr>
+                <th>Visitante</th><th>Campanha</th><th>Origem</th><th>Dispositivo</th>
+                <th class="num">Visitas</th><th class="num">Tempo</th>
+                <th>Último acesso</th><th>Converteu</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaVisitantes"></tbody>
+          </table>
+        </div>
+        <div class="paginacao" id="paginacaoVisitantes"></div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------- CONVERSÕES -->
+    <section data-secao="conversoes" hidden>
+      <div class="secao__titulo"><h2>Conversões</h2></div>
+      <p class="secao__ajuda">Quem preencheu o formulário. Marque tags e registre a venda.</p>
+
+      <div class="filtros">
+        <select id="filtroStatus">
+          <option value="">Todos os status</option>
+          <option value="novo">Novo</option>
+          <option value="em_contato">Em contato</option>
+          <option value="qualificado">Qualificado</option>
+          <option value="convertido">Convertido</option>
+          <option value="descartado">Descartado</option>
+        </select>
+        <select id="filtroTag"><option value="">Todas as tags</option></select>
+        <input type="search" id="buscaLeads" placeholder="Nome, e-mail, WhatsApp ou cidade">
+      </div>
+
+      <div class="cartao">
+        <div class="tabela-rolagem">
+          <table>
+            <thead>
+              <tr>
+                <th>Lead</th><th>Contato</th><th>Interesse</th>
+                <th>Campanha</th><th>Status</th><th>Tags</th><th>Recebido</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaLeads"></tbody>
+          </table>
+        </div>
+        <div class="paginacao" id="paginacaoLeads"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="gaveta"></div>
+
+<script src="/admin/painel.js"></script>
+</body>
+</html>

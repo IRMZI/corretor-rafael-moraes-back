@@ -4,7 +4,8 @@ import { env } from '../config/env.js';
 const COLUNAS = `
   id, nome, email, whatsapp, whatsapp_numeros, cidade, objetivo, tipo_imovel,
   faixa_investimento, origem, pagina, referrer, utm, status, observacoes,
-  enviado_em, criado_em, atualizado_em
+  tags, campanha, origem_trafego, midia, campanha_id, valor_venda, vendido_em,
+  visitante_id, sessao_id, enviado_em, criado_em, atualizado_em
 `;
 
 /* Reenvio do mesmo formulario (duplo clique, refresh) nao vira lead novo:
@@ -26,8 +27,10 @@ export async function criarLead(lead) {
   const { rows } = await query(
     `INSERT INTO leads
        (nome, email, whatsapp, whatsapp_numeros, cidade, objetivo, tipo_imovel,
-        faixa_investimento, origem, pagina, referrer, utm, enviado_em, ip, user_agent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15)
+        faixa_investimento, origem, pagina, referrer, utm, enviado_em, ip, user_agent,
+        visitante_id, sessao_id, campanha, origem_trafego, midia, campanha_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15,
+             $16, $17, $18, $19, $20, $21)
      RETURNING ${COLUNAS}`,
     [
       lead.nome,
@@ -44,7 +47,13 @@ export async function criarLead(lead) {
       JSON.stringify(lead.utm || {}),
       lead.enviado_em,
       lead.ip,
-      lead.user_agent
+      lead.user_agent,
+      lead.visitante_id,
+      lead.sessao_id,
+      lead.campanha,
+      lead.origem_trafego,
+      lead.midia,
+      lead.campanha_id
     ]
   );
   return rows[0];
@@ -64,6 +73,8 @@ export async function listarLeads(filtros) {
   if (filtros.status) condicoes.push(`status = ${proximo(filtros.status)}`);
   if (filtros.objetivo) condicoes.push(`objetivo = ${proximo(filtros.objetivo)}`);
   if (filtros.tipo_imovel) condicoes.push(`tipo_imovel = ${proximo(filtros.tipo_imovel)}`);
+  if (filtros.tag) condicoes.push(`${proximo(filtros.tag)} = ANY(tags)`);
+  if (filtros.campanha) condicoes.push(`campanha = ${proximo(filtros.campanha)}`);
   if (filtros.desde) condicoes.push(`criado_em >= ${proximo(filtros.desde)}`);
   if (filtros.ate) condicoes.push(`criado_em <= ${proximo(filtros.ate)}`);
   if (filtros.busca) {
@@ -115,6 +126,25 @@ export async function atualizarStatus(id, { status, observacoes }) {
     [id, status, observacoes ?? null]
   );
   return rows[0] || null;
+}
+
+export async function definirTags(id, tags) {
+  const { rows } = await query(
+    `UPDATE leads SET tags = $2::text[] WHERE id = $1 RETURNING ${COLUNAS}`,
+    [id, tags]
+  );
+  return rows[0] || null;
+}
+
+/* Tags ja usadas, para o painel sugerir em vez de deixar digitar solto. */
+export async function tagsExistentes() {
+  const { rows } = await query(
+    `SELECT tag, count(*)::int AS total
+       FROM leads, unnest(tags) AS tag
+      GROUP BY tag
+      ORDER BY total DESC, tag`
+  );
+  return rows;
 }
 
 export async function resumoLeads() {

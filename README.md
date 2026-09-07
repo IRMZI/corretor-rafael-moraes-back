@@ -1,15 +1,32 @@
-# API de leads — Corretor Rafael Moraes
+# API de leads e painel — Corretor Rafael Moraes
 
-Backend em **Node.js + Express + PostgreSQL** (SQL puro, sem ORM) que recebe e
-armazena os leads enviados pelo formulário da
-[landing page](https://github.com/IRMZI/Corretor-Rafael-Moraes).
+Backend em **Node.js + Express + PostgreSQL** (SQL puro, sem ORM) que recebe os
+leads da [landing page](https://github.com/IRMZI/Corretor-Rafael-Moraes),
+rastreia os visitantes anônimos e entrega tudo num **painel administrativo em
+`/admin`**.
+
+**Captação de leads**
 
 - Recebe o payload JSON exatamente no formato que a landing page já envia
 - Valida os campos e devolve o erro campo a campo
 - Protege contra spam: honeypot, rate limit por IP e CORS restrito ao domínio do site
 - Ignora reenvio do mesmo WhatsApp dentro de uma janela configurável
-- Guarda UTMs, gclid/fbclid, página de origem, referrer, IP e user-agent
-- Rotas de consulta protegidas por chave, com filtros, paginação e resumo
+
+**Rastreamento e métricas**
+
+- Script `/track.js` que a landing page carrega: identifica o visitante anônimo,
+  a visita e a campanha de origem — sem cookie e sem dado pessoal
+- Jornada completa: abriu a página, rolou, começou o formulário, clicou no
+  WhatsApp, converteu, saiu — com o tempo de permanência real (só conta a aba visível)
+- Acessos em 7 / 30 / 90 dias, tempo médio na página, funil e taxa de conversão
+- Desempenho por campanha (UTM, ou gclid/fbclid quando a UTM não vem)
+
+**Painel `/admin`**
+
+- Login por e-mail e senha, com sessão em cookie assinado
+- Visão geral, campanhas, visitantes (com a jornada de cada um) e conversões
+- Tags nos leads; marcar **vendido** registra a venda e dispara o evento de
+  conversão para a Meta (API de Conversões) e o GA4
 
 ## Rodando localmente
 
@@ -45,6 +62,16 @@ docker compose up --build
 | `RATE_LIMIT_MAX` | `20` | Envios permitidos por IP na janela |
 | `DEDUPE_WINDOW_MINUTES` | `10` | Janela em que o mesmo WhatsApp não gera lead novo |
 | `TRUST_PROXY` | `1` | Nº de proxies à frente da API (para o IP real chegar correto) |
+| `ADMIN_EMAIL` | — | E-mail do login do painel |
+| `ADMIN_PASSWORD` | — | Senha do login do painel |
+| `SESSION_SECRET` | — | Segredo que assina o cookie de sessão do painel |
+| `SESSION_HORAS` (`SESSION_HOURS`) | `12` | Horas até a sessão do painel expirar |
+| `META_PIXEL_ID` / `META_ACCESS_TOKEN` | — | Envio da venda pela API de Conversões da Meta |
+| `GA4_MEASUREMENT_ID` / `GA4_API_SECRET` | — | Envio da venda pelo Measurement Protocol do GA4 |
+
+As credenciais do painel ficam em texto no `.env` (como combinado). Elas dão
+acesso a todos os dados dos leads — trate o `.env` como segredo, não o comite e
+troque a senha se ela vazar.
 
 Gere a chave administrativa com:
 
@@ -54,18 +81,28 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## Conectando a landing page
 
-No `index.html` da landing page, preencha o `CONFIG.endpoint` com a URL da API:
+No `index.html` da landing page, preencha **um único valor** — `CONFIG.api`, com a
+URL da API publicada, sem barra no final:
 
 ```js
 const CONFIG = {
   // ...
-  endpoint: 'https://sua-api.com.br/api/leads',
-  metodo:   'POST'
+  api: 'https://sua-api.com.br',
+  rastrear: true
 };
 ```
 
-Nada mais precisa mudar: a função `enviarLead()` já envia o JSON no formato esperado
-e o campo honeypot `empresa` já existe no formulário.
+Isso já liga as três pontas:
+
+| O quê | Para onde vai |
+| --- | --- |
+| Envio do formulário | `POST {api}/api/leads` |
+| Rastreamento de visitantes | `{api}/track.js`, enviando para `POST {api}/api/track` |
+| Painel do corretor | `{api}/admin` |
+
+O `CONFIG.endpoint` continua existindo para quem quiser mandar o lead para outro
+destino (Zapier, n8n, CRM): quando preenchido, ele tem prioridade sobre o
+`CONFIG.api`.
 
 Lembre de incluir o domínio do site em `CORS_ORIGINS` — inclusive `www` se ele for
 usado, já que o navegador trata `https://site.com.br` e `https://www.site.com.br`
@@ -124,6 +161,61 @@ curl "https://sua-api.com.br/api/leads?status=novo&por_pagina=20" \
   -H "x-api-key: SUA_CHAVE"
 ```
 
+### `POST /api/track` — pública
+
+Coleta da jornada, chamada pelo `track.js`. Aceita `application/json` e
+`text/plain` (o `navigator.sendBeacon` usa `text/plain` para não disparar o
+preflight do CORS quando o visitante fecha a aba). Responde sempre `202`, mesmo
+com payload inválido: rastreamento nunca pode atrapalhar a página.
+
+```json
+{
+  "visitante_uid": "id do localStorage",
+  "sessao_uid": "id do sessionStorage",
+  "pagina": "https://site.com.br/?utm_source=google",
+  "referrer": "https://google.com/",
+  "utm": { "utm_source": "google", "utm_campaign": "imoveis-nh", "gclid": "..." },
+  "tempo_ativo_segundos": 95,
+  "eventos": [{ "tipo": "pageview", "dados": { "titulo": "Landing" } }]
+}
+```
+
+Tipos de evento: `pageview`, `scroll`, `clique`, `form_inicio`, `form_envio`,
+`whatsapp`, `heartbeat`, `saida`.
+
+### Painel e métricas
+
+Sessão por cookie (login em `POST /api/admin/login`) ou header `x-api-key`.
+
+| Rota | O que faz |
+| --- | --- |
+| `POST /api/admin/login` | Login com `{ email, senha }`; devolve o cookie de sessão |
+| `POST /api/admin/logout` | Encerra a sessão |
+| `GET /api/admin/metricas?dias=30` | Visitantes, acessos, conversões, taxa, tempo médio, série diária, funil e os totais de 7/30/90 dias |
+| `GET /api/admin/campanhas?dias=30` | Acessos, leads, taxa de conversão, tempo médio e vendas por campanha |
+| `GET /api/admin/visitantes?dias=30` | Visitantes com a campanha de origem; filtros `convertido`, `campanha`, `busca` |
+| `GET /api/admin/visitantes/:id` | Jornada completa: sessões e eventos, e o lead se converteu |
+| `GET /api/leads/tags` | Tags já usadas, com a contagem |
+| `PUT /api/leads/:id/tags` | Define as tags (`{ tags: [...], valor_venda }`) |
+| `POST /api/leads/:id/venda/reenviar` | Redispara o evento de venda |
+
+### Tags e evento de venda
+
+Marcar a tag **`vendido`** em uma conversão:
+
+1. registra a venda com um `evento_uid` único e move o lead para `convertido`;
+2. dispara `Purchase` na **API de Conversões da Meta** (e-mail, telefone e nome
+   hasheados em SHA-256 — nunca em texto puro) e `purchase` no **GA4**;
+3. guarda o retorno de cada plataforma, que o painel mostra e permite reenviar.
+
+Sem `META_*` / `GA4_*` configurados a venda fica registrada e marcada como
+*não configurado* — nada quebra. O `evento_uid` é o mesmo `eventID` do pixel do
+navegador, então a Meta deduplica se o evento chegar pelos dois caminhos (o
+painel mostra o snippet pronto).
+
+Desmarcar a tag desfaz o registro da venda no banco. O evento já enviado às
+plataformas não volta atrás.
+
 ### `GET /health`
 
 Healthcheck com ping no banco — use no monitoramento do provedor de deploy.
@@ -143,19 +235,36 @@ Sem `TEST_DATABASE_URL` definida, a suíte é ignorada em vez de falhar.
 
 ```
 src/
-├── app.js                  # Express: middlewares, CORS, rotas, healthcheck
+├── app.js                  # Express: middlewares, CORS, rotas, painel, healthcheck
 ├── server.js               # Sobe o servidor, roda migrations, encerra limpo
 ├── config/env.js           # Variáveis de ambiente e validação da configuração
-├── db/index.js             # Pool do PostgreSQL
-├── db/migrate.js           # Executor de migrations (registra em schema_migrations)
-├── routes/                 # Definição das rotas
+├── db/                     # Pool do PostgreSQL e executor de migrations
+├── routes/                 # leads, tracking e admin
 ├── controllers/            # Entrada HTTP: valida e responde
-├── services/               # SQL dos leads
-├── middlewares/            # Chave de acesso, rate limit, tratamento de erros
-└── validators/             # Schemas (zod) do lead e dos filtros
+├── services/               # SQL de leads, rastreamento, métricas e vendas
+├── integracoes/            # Meta (API de Conversões) e GA4
+├── middlewares/            # Sessão do painel, chave de API, rate limit, erros
+├── utils/                  # Identificação de campanha, token de sessão, log
+└── validators/             # Schemas (zod) do lead, do tracking e dos filtros
+public/
+├── track.js                # Script de rastreamento carregado pela landing page
+└── admin/                  # Painel: HTML, CSS e JS puros (sem build)
 db/migrations/              # Arquivos .sql aplicados em ordem
-tests/                      # Testes de integração da API
+tests/                      # Testes de integração da API e do painel
 ```
+
+## Como o rastreamento funciona
+
+- O visitante recebe um id aleatório no `localStorage` e a visita um id no
+  `sessionStorage` — **sem cookie, sem dado pessoal**. É só um identificador
+  anônimo que permite ligar a jornada à conversão depois.
+- A campanha sai da UTM da URL e fica guardada pela sessão inteira. Sem UTM, o
+  `gclid` vira `google-ads`, o `fbclid` vira `meta-ads` e, na falta dos dois, o
+  referrer classifica em orgânico / social / referência / direto.
+- O tempo de permanência conta só com a aba visível, atualizado por heartbeat e
+  fechado no `sendBeacon` da saída.
+- Quando o formulário é enviado, o lead carrega os dois ids: a conversão passa a
+  ter dono e a jornada aparece no painel.
 
 ## Deploy
 
@@ -165,4 +274,5 @@ Funciona em qualquer serviço que rode Node: Railway, Render, Fly.io, VPS com Do
 2. Configure as variáveis de ambiente (`DATABASE_SSL=true` em banco gerenciado)
 3. Comando de start: `npm start` — as migrations rodam sozinhas no boot
 4. Healthcheck: `/health`
-5. Preencha o `CONFIG.endpoint` da landing page com a URL pública da API
+5. Preencha o `CONFIG.api` da landing page com a URL pública da API
+6. Acesse o painel em `https://sua-api.com.br/admin`
