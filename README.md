@@ -65,22 +65,59 @@ docker compose up --build
 | `RATE_LIMIT_MAX` | `20` | Envios permitidos por IP na janela |
 | `DEDUPE_WINDOW_MINUTES` | `10` | Janela em que o mesmo WhatsApp não gera lead novo |
 | `TRUST_PROXY` | `1` | Nº de proxies à frente da API (para o IP real chegar correto) |
-| `ADMIN_EMAIL` | — | E-mail do login do painel |
-| `ADMIN_PASSWORD` | — | Senha do login do painel |
+| `ADMIN_EMAIL` | — | Login de reserva do painel, válido só enquanto não houver conta cadastrada |
+| `ADMIN_PASSWORD` | — | Senha desse login de reserva |
 | `SESSION_SECRET` | — | Segredo que assina o cookie de sessão do painel |
 | `SESSION_HOURS` | `12` | Horas até a sessão do painel expirar |
 | `META_PIXEL_ID` / `META_ACCESS_TOKEN` | — | Envio da venda pela API de Conversões da Meta |
 | `GA4_MEASUREMENT_ID` / `GA4_API_SECRET` | — | Envio da venda pelo Measurement Protocol do GA4 |
 
-As credenciais do painel ficam em texto no `.env` (como combinado). Elas dão
-acesso a todos os dados dos leads — trate o `.env` como segredo, não o comite e
-troque a senha se ela vazar.
+`ADMIN_EMAIL` e `ADMIN_PASSWORD` são a porta de entrada inicial: elas valem
+enquanto a tabela `usuarios` estiver vazia, para ninguém ficar sem acesso entre
+subir o banco e cadastrar a primeira conta. Depois da primeira conta criada,
+esse par para de funcionar e o login passa a ser só pelo banco — o esperado é
+apagar `ADMIN_PASSWORD` do ambiente nesse momento.
+
+Veja [Contas do painel](#contas-do-painel) logo abaixo.
 
 Gere a chave administrativa com:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+## Contas do painel
+
+Cada pessoa que usa o `/admin` tem a sua conta. A senha é guardada como hash
+scrypt (nunca em texto), o acesso pode ser revogado sem redeploy e o painel
+registra o último acesso de cada uma.
+
+```bash
+# cria a conta e sorteia uma senha forte, mostrada uma única vez
+npm run usuario:criar -- --email=rafael@wallstreet.com.br --nome="Rafael Moraes"
+
+# ou com uma senha escolhida por você (mínimo de 10 caracteres)
+npm run usuario:criar -- --email=rafael@wallstreet.com.br --senha="a senha dele"
+
+npm run usuario:listar
+npm run usuario:desativar -- --email=alguem@empresa.com.br
+npm run usuario:ativar -- --email=alguem@empresa.com.br
+```
+
+Pontos que valem saber:
+
+- rodar `usuario:criar` de novo com um e-mail que já existe **troca a senha** dele
+  (é assim que se atende um "esqueci a senha"); o nome é preservado;
+- `usuario:desativar` corta o acesso na hora — a conta é reconferida a cada
+  requisição, então a sessão que estava aberta cai na requisição seguinte, sem
+  esperar as 12h do cookie;
+- desativar não apaga a conta: o histórico de quem acessava continua de pé;
+- a senha sorteada aparece **uma vez só** no terminal. Não fica guardada em lugar
+  nenhum — mande por um canal privado e, se perder, gere outra.
+
+Os comandos rodam contra o banco de `DATABASE_URL`, então no servidor de produção
+use o console do provedor (Railway, Render, Fly) ou rode localmente apontando a
+`DATABASE_URL` para o banco de produção.
 
 ## Conectando a landing page
 
@@ -251,6 +288,8 @@ src/
 └── validators/             # Schemas (zod) do lead, do tracking e dos filtros
 public/
 └── track.js                # Script de rastreamento carregado pela landing page
+scripts/
+└── usuario.js              # Cria, lista, ativa e desativa contas do painel
 db/migrations/              # Arquivos .sql aplicados em ordem
 tests/                      # Testes de integração da API e do painel
 ```
