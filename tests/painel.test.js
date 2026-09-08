@@ -22,7 +22,9 @@ if (!urlBanco) {
   const { query, fecharPool } = await import('../src/db/index.js');
 
   await migrar();
-  await query('TRUNCATE vendas, eventos, sessoes, leads, visitantes RESTART IDENTITY CASCADE');
+  /* usuarios entra na limpeza porque esta suite entra pela credencial do
+     ambiente, que so vale enquanto nao existe nenhuma conta cadastrada. */
+  await query('TRUNCATE vendas, eventos, sessoes, leads, visitantes, usuarios RESTART IDENTITY CASCADE');
 
   const servidor = criarApp().listen(0);
   await new Promise((resolve) => servidor.once('listening', resolve));

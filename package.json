@@ -12,6 +12,10 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "migrate": "node src/db/migrate.js",
+    "usuario:criar": "node scripts/usuario.js criar",
+    "usuario:listar": "node scripts/usuario.js listar",
+    "usuario:desativar": "node scripts/usuario.js desativar",
+    "usuario:ativar": "node scripts/usuario.js ativar",
     "test": "node --test --test-concurrency=1"
   },
   "dependencies": {
